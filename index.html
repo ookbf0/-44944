@@ -27,7 +27,20 @@
         .group-header .arrow.open { transform: rotate(90deg); }
         .group-body { padding: 8px 12px 12px 12px; display: none; flex-wrap: wrap; gap: 6px; }
         .group-body.open { display: flex; }
-        .opt { background: #25252b; padding: 4px 12px; border-radius: 30px; font-size: 12px; cursor: pointer; border: 1.5px solid transparent; transition: 0.12s; color: #cbc4bd; user-select: none; display: inline-flex; align-items: center; gap: 5px; }
+        .opt {
+            background: #25252b;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1.5px solid transparent;
+            transition: 0.12s;
+            color: #cbc4bd;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
         .opt .en { color: #7a7a82; font-size: 10px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .opt:hover { background: #2f2f37; border-color: #4a4a54; }
         .opt.active { background: #3d2c24; border-color: #d9a58a; color: #f0e0d5; }
@@ -85,9 +98,9 @@
 
 <script>
     // ============================================================
-    // ⚠️ 第8行：把下面的地址换成你自己的 Worker 域名
+    // ⚠️ 重要：把下面的地址换成你自己的 Worker 域名
     // ============================================================
-    const WORKER_URL = 'summer-recipe-8170.ookbf0.workers.dev';
+    const WORKER_URL = 'https://nsfw-proxy.你的用户名.workers.dev';
 
     const FILES = [
         '00-范例.md', '01-场景主题.md', '02-景别构图.md',
@@ -111,45 +124,40 @@
 
     // ---------- 解析器 ----------
     function extractEnZh(line) {
-        let raw = line.trim();
+        var raw = line.trim();
         if (!raw) return null;
 
-        // 格式1: "英文 (中文)" 或 "英文（中文）"
-        let match = raw.match(/^(.*?)\s*[（(]([^）)]*)[）)]\s*$/);
+        var match = raw.match(/^(.*?)\s*[（(]([^）)]*)[）)]\s*$/);
         if (match && (match[1].trim() || match[2].trim())) {
             return { en: match[1].trim(), zh: match[2].trim() };
         }
 
-        // 格式2: "英文    中文"（多个空格）
         match = raw.match(/^(.*?)\s{2,}([\u4e00-\u9fff].*)$/);
         if (match) {
             return { en: match[1].trim(), zh: match[2].trim() };
         }
 
-        // 格式3: 提取中文作为zh，剩余作为en
-        const cnChars = raw.match(/[\u4e00-\u9fff]+/g);
+        var cnChars = raw.match(/[\u4e00-\u9fff]+/g);
         if (cnChars) {
-            let zh = cnChars.join(' ');
-            let en = raw.replace(/[\u4e00-\u9fff]+/g, '').trim();
+            var zh = cnChars.join(' ');
+            var en = raw.replace(/[\u4e00-\u9fff]+/g, '').trim();
             if (en.replace(/[^\w\s,.]/g, '').trim() === '') en = '';
-            return { en, zh };
+            return { en: en, zh: zh };
         }
 
-        // 格式4: 纯英文
         return { en: raw, zh: '' };
     }
 
     function parseMd(text) {
-        const lines = text.split(/\r?\n/);
-        const groups = [];
-        let currentGroup = { name: '全部词条', items: [] };
-        let pendingItems = [];
+        var lines = text.split(/\r?\n/);
+        var groups = [];
+        var currentGroup = { name: '全部词条', items: [] };
+        var pendingItems = [];
 
-        for (let line of lines) {
-            const trimmed = line.trim();
+        for (var i = 0; i < lines.length; i++) {
+            var trimmed = lines[i].trim();
             if (!trimmed) continue;
 
-            // 二级标题 -> 新分组
             if (/^##\s+/.test(trimmed)) {
                 if (pendingItems.length > 0) {
                     currentGroup.items = pendingItems.slice();
@@ -162,7 +170,6 @@
                 continue;
             }
 
-            // 一级/三级标题 -> 忽略但保存当前分组
             if (/^#{1,3}\s+/.test(trimmed)) {
                 if (pendingItems.length > 0) {
                     currentGroup.items = pendingItems.slice();
@@ -175,8 +182,7 @@
                 continue;
             }
 
-            // 列表项或短行
-            let content = null;
+            var content = null;
             if (/^\s*[-*+]\s+/.test(trimmed) || /^\s*\d+[\.\)]\s+/.test(trimmed)) {
                 content = trimmed.replace(/^\s*[-*+]\s+/, '').replace(/^\s*\d+[\.\)]\s+/, '');
             } else if (trimmed.length < 120 && !/^#/.test(trimmed) && !/^---/.test(trimmed)) {
@@ -184,14 +190,13 @@
             }
 
             if (content) {
-                const parsed = extractEnZh(content);
+                var parsed = extractEnZh(content);
                 if (parsed && (parsed.en || parsed.zh)) {
                     pendingItems.push(parsed);
                 }
             }
         }
 
-        // 保存最后一个
         if (pendingItems.length > 0) {
             currentGroup.items = pendingItems.slice();
             groups.push(currentGroup);
@@ -201,16 +206,18 @@
             groups.push(currentGroup);
         }
 
-        // 如果总词条为0，暴力回退
-        const total = groups.reduce((acc, g) => acc + g.items.length, 0);
+        var total = 0;
+        for (var g = 0; g < groups.length; g++) {
+            total += groups[g].items.length;
+        }
         if (total === 0) {
-            const fallback = { name: '原始内容', items: [] };
-            for (let line of lines) {
-                const trimmed = line.trim();
-                if (trimmed && !/^#/.test(trimmed) && !/^---/.test(trimmed) && trimmed.length < 120) {
-                    const parsed = extractEnZh(trimmed);
-                    if (parsed && (parsed.en || parsed.zh)) {
-                        fallback.items.push(parsed);
+            var fallback = { name: '原始内容', items: [] };
+            for (var j = 0; j < lines.length; j++) {
+                var trimmed2 = lines[j].trim();
+                if (trimmed2 && !/^#/.test(trimmed2) && !/^---/.test(trimmed2) && trimmed2.length < 120) {
+                    var parsed2 = extractEnZh(trimmed2);
+                    if (parsed2 && (parsed2.en || parsed2.zh)) {
+                        fallback.items.push(parsed2);
                     }
                 }
             }
@@ -225,61 +232,62 @@
 
     // ---------- 加载数据 ----------
     async function loadAllData() {
-        const statusEl = document.getElementById('status');
+        var statusEl = document.getElementById('status');
         statusEl.textContent = '加载中...';
         statusEl.className = 'status loading';
         document.getElementById('errorContainer').innerHTML = '';
         document.getElementById('debugContainer').innerHTML = '';
 
-        let successCount = 0;
-        const errors = [];
-        const debugInfo = [];
+        var successCount = 0;
+        var errors = [];
+        var debugInfo = [];
 
-        for (const file of FILES) {
+        for (var i = 0; i < FILES.length; i++) {
+            var file = FILES[i];
             try {
-                const url = WORKER_URL + '?file=' + encodeURIComponent(file);
-                debugInfo.push(`请求: ${url}`);
-                const resp = await fetch(url);
+                var url = WORKER_URL + '?file=' + encodeURIComponent(file);
+                debugInfo.push('请求: ' + url);
+                var resp = await fetch(url);
 
                 if (resp.ok) {
-                    const text = await resp.text();
-                    debugInfo.push(`${file}: 获取成功 (${text.length} 字符)`);
+                    var text = await resp.text();
+                    debugInfo.push(file + ': 获取成功 (' + text.length + ' 字符)');
 
-                    const groups = parseMd(text);
-                    const total = groups.reduce((sum, g) => sum + g.items.length, 0);
-                    debugInfo.push(`${file}: 解析出 ${total} 个词条，${groups.length} 个分组`);
+                    var groups = parseMd(text);
+                    var total = 0;
+                    for (var g = 0; g < groups.length; g++) {
+                        total += groups[g].items.length;
+                    }
+                    debugInfo.push(file + ': 解析出 ' + total + ' 个词条，' + groups.length + ' 个分组');
 
                     allData[file] = groups;
                     successCount++;
                 } else {
-                    errors.push(`${file}: HTTP ${resp.status}`);
-                    debugInfo.push(`${file}: HTTP ${resp.status}`);
+                    errors.push(file + ': HTTP ' + resp.status);
+                    debugInfo.push(file + ': HTTP ' + resp.status);
                     allData[file] = [{ name: '加载失败', items: [] }];
                 }
             } catch (e) {
-                errors.push(`${file}: ${e.message}`);
-                debugInfo.push(`${file}: 错误 - ${e.message}`);
+                errors.push(file + ': ' + e.message);
+                debugInfo.push(file + ': 错误 - ' + e.message);
                 allData[file] = [{ name: '加载失败', items: [] }];
             }
         }
 
-        // 显示调试信息
         document.getElementById('debugContainer').innerHTML =
-            `<div class="debug-box">${debugInfo.join('\n')}</div>`;
+            '<div class="debug-box">' + debugInfo.join('\n') + '</div>';
 
         if (successCount === FILES.length) {
-            statusEl.textContent = `✅ 已加载 ${successCount} 个文件`;
+            statusEl.textContent = '✅ 已加载 ' + successCount + ' 个文件';
             statusEl.className = 'status success';
         } else {
-            statusEl.textContent = `⚠️ 加载 ${successCount}/${FILES.length}`;
+            statusEl.textContent = '⚠️ 加载 ' + successCount + '/' + FILES.length;
             statusEl.className = 'status error';
             if (errors.length > 0) {
-                document.getElementById('errorContainer').innerHTML = `
-                    <div class="error-box">
-                        <strong>❌ 加载失败的文件：</strong><br/>
-                        ${errors.map(e => '• ' + e).join('<br/>')}
-                    </div>
-                `;
+                document.getElementById('errorContainer').innerHTML =
+                    '<div class="error-box"><strong>❌ 加载失败的文件：</strong><br/>' +
+                    errors.map(function(e) { return '• ' + e; }).join('<br/>') +
+                    '</div>';
             }
         }
 
@@ -291,120 +299,155 @@
 
     // ---------- 渲染 ----------
     function renderTabs() {
-        const container = document.getElementById('tabsContainer');
+        var container = document.getElementById('tabsContainer');
         container.innerHTML = '';
-        FILES.forEach((file) => {
-            const tab = document.createElement('span');
-            tab.className = `tab ${file === currentFile ? 'active' : ''}`;
-            const groups = allData[file] || [];
-            const count = groups.reduce((sum, g) => sum + (g.items ? g.items.length : 0), 0);
-            tab.innerHTML = `${FILE_LABELS[file] || file} <span class="count">${count}</span>`;
+        for (var i = 0; i < FILES.length; i++) {
+            var file = FILES[i];
+            var tab = document.createElement('span');
+            tab.className = 'tab' + (file === currentFile ? ' active' : '');
+            var groups = allData[file] || [];
+            var count = 0;
+            for (var g = 0; g < groups.length; g++) {
+                count += (groups[g].items ? groups[g].items.length : 0);
+            }
+            var label = FILE_LABELS[file] || file;
+            tab.innerHTML = label + ' <span class="count">' + count + '</span>';
             tab.dataset.file = file;
-            tab.addEventListener('click', () => {
-                currentFile = file;
-                renderTabs();
-                renderContent(file);
-                updateOutput();
-            });
+            tab.addEventListener('click', function(f) {
+                return function() {
+                    currentFile = f;
+                    renderTabs();
+                    renderContent(f);
+                    updateOutput();
+                };
+            }(file));
             container.appendChild(tab);
-        });
+        }
     }
 
     function renderContent(file) {
-        const container = document.getElementById('contentContainer');
-        const groups = allData[file];
-        if (!groups || groups.length === 0 || groups.every(g => !g.items || g.items.length === 0)) {
-            container.innerHTML = `<div class="empty-tip">该分类暂无数据</div>`;
-            return;
+        var container = document.getElementById('contentContainer');
+        var groups = allData[file];
+        if (!groups || groups.length === 0) {
+            var hasItems = false;
+            for (var g = 0; g < groups.length; g++) {
+                if (groups[g].items && groups[g].items.length > 0) hasItems = true;
+            }
+            if (!hasItems) {
+                container.innerHTML = '<div class="empty-tip">该分类暂无数据</div>';
+                return;
+            }
         }
 
-        let html = '';
+        var html = '';
         firstOpenDone = false;
-        groups.forEach((group, groupIdx) => {
-            const groupId = `group_${file}_${groupIdx}`;
-            const isOpen = groupIdx === 0;
-            if (groupIdx === 0) firstOpenDone = true;
-            const items = group.items || [];
+        for (var gi = 0; gi < groups.length; gi++) {
+            var group = groups[gi];
+            var groupId = 'group_' + file + '_' + gi;
+            var isOpen = (gi === 0);
+            if (gi === 0) firstOpenDone = true;
+            var items = group.items || [];
 
-            const itemHtml = items.length === 0 ?
-                '<span style="color:#555;font-size:12px;padding:4px 0;">（无词条）</span>' :
-                items.map((item, itemIdx) => {
-                    const key = `${file}_${groupIdx}_${itemIdx}`;
-                    const active = selections[key] ? 'active' : '';
-                    const enDisplay = item.en || '';
-                    const zhDisplay = item.zh || '';
-                    let label = '';
+            var itemHtml = '';
+            if (items.length === 0) {
+                itemHtml = '<span style="color:#555;font-size:12px;padding:4px 0;">（无词条）</span>';
+            } else {
+                var itemParts = [];
+                for (var ii = 0; ii < items.length; ii++) {
+                    var item = items[ii];
+                    var key = file + '_' + gi + '_' + ii;
+                    var active = selections[key] ? 'active' : '';
+                    var enDisplay = item.en || '';
+                    var zhDisplay = item.zh || '';
+                    var label = '';
                     if (zhDisplay && enDisplay) {
-                        label = `${zhDisplay} (${enDisplay.slice(0, 35)}${enDisplay.length > 35 ? '…' : ''})`;
+                        var shortEn = enDisplay.length > 35 ? enDisplay.slice(0, 35) + '…' : enDisplay;
+                        label = zhDisplay + ' (' + shortEn + ')';
                     } else if (zhDisplay) {
                         label = zhDisplay;
                     } else {
                         label = enDisplay;
                     }
-                    return `<span class="opt ${active}" data-key="${key}" data-en="${enDisplay}" data-zh="${zhDisplay}">${label}</span>`;
-                }).join('');
+                    itemParts.push(
+                        '<span class="opt ' + active + '" data-key="' + key + '" data-en="' + enDisplay + '" data-zh="' + zhDisplay + '">' + label + '</span>'
+                    );
+                }
+                itemHtml = itemParts.join('');
+            }
 
-            html += `
-                <div class="group" data-group-id="${groupId}">
-                    <div class="group-header" data-target="${groupId}">
-                        <span>${group.name || '未命名分组'} (${items.length})</span>
-                        <span class="arrow ${isOpen ? 'open' : ''}">▶</span>
-                    </div>
-                    <div class="group-body ${isOpen ? 'open' : ''}" id="${groupId}">
-                        ${itemHtml}
-                    </div>
-                </div>
-            `;
-        });
+            html +=
+                '<div class="group" data-group-id="' + groupId + '">' +
+                '<div class="group-header" data-target="' + groupId + '">' +
+                '<span>' + (group.name || '未命名分组') + ' (' + items.length + ')</span>' +
+                '<span class="arrow' + (isOpen ? ' open' : '') + '">▶</span>' +
+                '</div>' +
+                '<div class="group-body' + (isOpen ? ' open' : '') + '" id="' + groupId + '">' +
+                itemHtml +
+                '</div>' +
+                '</div>';
+        }
 
         container.innerHTML = html;
 
         // 折叠事件
-        container.querySelectorAll('.group-header').forEach(header => {
-            header.addEventListener('click', function() {
-                const targetId = this.dataset.target;
-                const body = document.getElementById(targetId);
-                if (body) {
-                    body.classList.toggle('open');
-                    this.querySelector('.arrow').classList.toggle('open');
-                }
-            });
-        });
+        var headers = container.querySelectorAll('.group-header');
+        for (var h = 0; h < headers.length; h++) {
+            (function(header) {
+                header.addEventListener('click', function() {
+                    var targetId = this.dataset.target;
+                    var body = document.getElementById(targetId);
+                    if (body) {
+                        body.classList.toggle('open');
+                        var arrow = this.querySelector('.arrow');
+                        if (arrow) arrow.classList.toggle('open');
+                    }
+                });
+            })(headers[h]);
+        }
 
         // 词条点击
-        container.querySelectorAll('.opt').forEach(el => {
-            el.addEventListener('click', function() {
-                const key = this.dataset.key;
-                selections[key] = !selections[key];
-                this.classList.toggle('active');
-                updateOutput();
-            });
-        });
+        var opts = container.querySelectorAll('.opt');
+        for (var o = 0; o < opts.length; o++) {
+            (function(opt) {
+                opt.addEventListener('click', function() {
+                    var key = this.dataset.key;
+                    selections[key] = !selections[key];
+                    this.classList.toggle('active');
+                    updateOutput();
+                });
+            })(opts[o]);
+        }
     }
 
     // ---------- 输出 ----------
     function updateOutput() {
-        const output = document.getElementById('promptOutput');
-        const trans = document.getElementById('translationText');
+        var output = document.getElementById('promptOutput');
+        var trans = document.getElementById('translationText');
 
-        const selectedItems = [];
-        FILES.forEach(file => {
-            const groups = allData[file] || [];
-            groups.forEach((group, gIdx) => {
-                (group.items || []).forEach((item, iIdx) => {
-                    const key = `${file}_${gIdx}_${iIdx}`;
+        var selectedItems = [];
+        for (var f = 0; f < FILES.length; f++) {
+            var file = FILES[f];
+            var groups = allData[file] || [];
+            for (var g = 0; g < groups.length; g++) {
+                var items = groups[g].items || [];
+                for (var i = 0; i < items.length; i++) {
+                    var key = file + '_' + g + '_' + i;
                     if (selections[key]) {
-                        const enText = item.en || item.zh || '';
+                        var enText = items[i].en || items[i].zh || '';
                         if (enText) {
-                            selectedItems.push({ en: enText, zh: item.zh || item.en || '' });
+                            selectedItems.push({ en: enText, zh: items[i].zh || items[i].en || '' });
                         }
                     }
-                });
-            });
-        });
+                }
+            }
+        }
 
-        const enParts = selectedItems.map(it => it.en);
-        const zhParts = selectedItems.map(it => it.zh);
+        var enParts = [];
+        var zhParts = [];
+        for (var s = 0; s < selectedItems.length; s++) {
+            enParts.push(selectedItems[s].en);
+            zhParts.push(selectedItems[s].zh);
+        }
 
         if (enParts.length > 0) {
             output.textContent = enParts.join(', ');
@@ -413,7 +456,7 @@
             output.textContent = '请选择词条...';
             output.classList.add('placeholder');
         }
-        trans.textContent = zhParts.length ? zhParts.join('；') : '暂无选择';
+        trans.textContent = zhParts.length > 0 ? zhParts.join('；') : '暂无选择';
     }
 
     function resetSelections() {
@@ -423,16 +466,16 @@
     }
 
     function copyPrompt() {
-        const output = document.getElementById('promptOutput');
-        const text = output.textContent;
+        var output = document.getElementById('promptOutput');
+        var text = output.textContent;
         if (!text || text === '请选择词条...' || text === '选择词条后自动生成...') {
             alert('还没有选择任何词条！');
             return;
         }
-        navigator.clipboard.writeText(text).then(() => {
+        navigator.clipboard.writeText(text).then(function() {
             alert('✅ 已复制到剪贴板！');
-        }).catch(() => {
-            const range = document.createRange();
+        }).catch(function() {
+            var range = document.createRange();
             range.selectNode(output);
             window.getSelection().removeAllRanges();
             window.getSelection().addRange(range);
