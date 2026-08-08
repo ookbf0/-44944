@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NSFW 亚洲风提示词构建器</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            background: #0d0d0f;
+            color: #e0dcd9;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            padding: 20px 16px;
+            display: flex;
+            justify-content: center;
+        }
+        .app {
+            max-width: 1300px;
+            width: 100%;
+            background: #18181c;
+            border-radius: 28px;
+            padding: 24px 22px;
+            border: 1px solid #2a2a30;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+        }
+        h1 {
+            font-size: 26px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #f0c8b0, #d9a58a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+        .sub {
+            color: #888;
+            font-size: 13px;
+            border-bottom: 1px solid #2a2a30;
+            padding-bottom: 12px;
+            margin-bottom: 18px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .sub .status {
+            background: #25252b;
+            padding: 3px 16px;
+            border-radius: 40px;
+            font-size: 12px;
+            color: #b0a8a0;
+        }
+        .sub .status.loading { color: #f0c8b0; }
+        .sub .status.error { color: #e88a7c; }
+        .sub .status.success { color: #8bc8a0; }
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #2a2a30;
+            padding-bottom: 12px;
+        }
+        .tab {
+            background: #25252b;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: 0.15s;
+            color: #b0a8a0;
+            user-select: none;
+        }
+        .tab:hover { background: #2f2f37; border-color: #4a4a54; }
+        .tab.active { background: #3d2c24; border-color: #d9a58a; color: #f0e0d5; }
+        .tab .count {
+            font-size: 10px;
+            background: #1e1e24;
+            padding: 0 6px;
+            border-radius: 20px;
+            margin-left: 4px;
+            color: #777;
+        }
+        .content { min-height: 300px; }
+        .group {
+            background: #1a1a20;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #28282e;
+            overflow: hidden;
+        }
+        .group-header {
+            background: #22222a;
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            color: #cbc4bd;
+            transition: 0.1s;
+            user-select: none;
+        }
+        .group-header:hover { background: #2a2a32; }
+        .group-header .arrow {
+            transition: transform 0.2s;
+            font-size: 14px;
+        }
+        .group-header .arrow.open { transform: rotate(90deg); }
+        .group-body {
+            padding: 8px 12px 12px 12px;
+            display: none;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .group-body.open { display: flex; }
+        .opt {
+            background: #25252b;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1.5px solid transparent;
+            transition: 0.12s;
+            color: #cbc4bd;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .opt .en {
+            color: #7a7a82;
+            font-size: 10px;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .opt:hover { background: #2f2f37; border-color: #4a4a54; }
+        .opt.active { background: #3d2c24; border-color: #d9a58a; color: #f0e0d5; }
+        .opt.active .en { color: #c9a68e; }
+        .output-section {
+            margin-top: 24px;
+            background: #0f0f12;
+            border-radius: 16px;
+            padding: 16px 18px;
+            border: 1px solid #2a2a32;
+        }
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .output-header h3 {
+            font-weight: 400;
+            font-size: 14px;
+            color: #b0a8a0;
+        }
+        .actions button {
+            background: #2d2d35;
+            border: none;
+            color: #ddd;
+            padding: 5px 16px;
+            border-radius: 30px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.15s;
+            margin-left: 6px;
+        }
+        .actions button:hover { background: #3f3f4a; color: #fff; }
+        .actions .primary {
+            background: #c28b6e;
+            color: #0d0d0f;
+            font-weight: 500;
+        }
+        .actions .primary:hover { background: #d9a58a; }
+        #promptOutput {
+            background: #09090b;
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #ece6e0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            min-height: 60px;
+            border: 1px solid #202026;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #promptOutput.placeholder { color: #4a4a52; font-style: italic; }
+        .translation-box {
+            margin-top: 10px;
+            background: #131317;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #9a928a;
+            border-left: 3px solid #3a3a44;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .translation-box strong { color: #cbc4bd; font-weight: 500; }
+        .footer-note {
+            margin-top: 14px;
+            font-size: 11px;
+            color: #4a4a52;
+            text-align: center;
+        }
+        .reset-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: #888;
+            padding: 3px 12px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .reset-btn:hover { border-color: #555; color: #ccc; }
+        .empty-tip { color: #555; text-align: center; padding: 40px 0; font-size: 15px; }
+        @media (max-width: 640px) {
+            .app { padding: 12px; }
+            .tab { font-size: 12px; padding: 4px 12px; }
+            .opt { font-size: 11px; padding: 3px 10px; }
+            .opt .en { max-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <h1>⛩️ 亚洲风 · 提示词构建器</h1>
+    <div class="sub">
+        <span>基于 ShuaiHui/nsfw-prompt-templates-asian</span>
+        <span class="status" id="status">加载中...</span>
+    </div>
+
+    <div class="tabs" id="tabsContainer"></div>
+    <div class="content" id="contentContainer">
+        <div class="empty-tip">⏳ 正在加载数据...</div>
+    </div>
+
+    <div class="output-section">
+        <div class="output-header">
+            <h3>📋 生成的提示词 (英文)</h3>
+            <div class="actions">
+                <button class="reset-btn" onclick="resetSelections()">清空选择</button>
+                <button class="primary" onclick="copyPrompt()">📄 复制</button>
+            </div>
+        </div>
+        <div id="promptOutput" class="placeholder">选择词条后自动生成...</div>
+        <div class="translation-box">
+            <strong>中文释义：</strong> <span id="translationText">暂无选择</span>
+        </div>
+    </div>
+    <div class="footer-note">* 点击标签切换分类 · 点击分组展开/收起 · 点击词条复选</div>
+</div>
+
+<script>
+    // ============================================================
+    // 配置：使用 ghproxy.net 代理访问 GitHub Raw
+    // ============================================================
+    const FILES = [
+        '00-范例.md',
+        '01-场景主题.md',
+        '02-景别构图.md',
+        '03-裸露液体.md',
+        '04-服装专项.md',
+        '05-光影氛围.md',
+        '06-姿势动作.md',
+        '07-表情眼神.md',
+        '08-风格胶片.md',
+        '09-妆容专项.md',
+        '10-发型饰品.md',
+        '11-瑕疵细节.md',
+        '12-纹身标记.md',
+        '13-道具宠物.md',
+        '14-人格卡片.md'
+    ];
+    const FILE_LABELS = {
+        '00-范例.md':'00 范例',
+        '01-场景主题.md':'01 场景',
+        '02-景别构图.md':'02 景别',
+        '03-裸露液体.md':'03 裸露',
+        '04-服装专项.md':'04 服装',
+        '05-光影氛围.md':'05 光影',
+        '06-姿势动作.md':'06 姿势',
+        '07-表情眼神.md':'07 表情',
+        '08-风格胶片.md':'08 风格',
+        '09-妆容专项.md':'09 妆容',
+        '10-发型饰品.md':'10 发型',
+        '11-瑕疵细节.md':'11 瑕疵',
+        '12-纹身标记.md':'12 纹身',
+        '13-道具宠物.md':'13 道具',
+        '14-人格卡片.md':'14 人格'
+    };
+    // 使用 ghproxy.net 代理（国内可用）
+    const PROXY = 'https://ghproxy.net/https://raw.githubusercontent.com';
+    const REPO_PATH = '/ShuaiHui/nsfw-prompt-templates-asian/main/templates-jav/';
+
+    let allData = {};
+    let selections = {};
+    let currentFile = FILES[0];
+    let firstOpenDone = false;
+
+    // ============================================================
+    // 解析器：从 .md 文件中提取词条
+    // ============================================================
+    function extractEnZh(line) {
+        let raw = line.trim();
+        if (!raw) return null;
+        // 匹配 英文 (中文) 或 英文（中文）
+        let match = raw.match(/^(.*?)\s*[（(]([^）)]*)[）)]\s*$/);
+        if (match) {
+            let en = match[1].trim();
+            let zh = match[2].trim();
+            if (en || zh) return { en, zh };
+        }
+        // 匹配 英文 + 多个空格 + 中文
+        match = raw.match(/^(.*?)\s{2,}([\u4e00-\u9fff].*)$/);
+        if (match) {
+            return { en: match[1].trim(), zh: match[2].trim() };
+        }
+        // 提取中文字符作为中文
+        const cnChars = raw.match(/[\u4e00-\u9fff]+/g);
+        if (cnChars) {
+            let zh = cnChars.join(' ');
+            let en = raw.replace(/[\u4e00-\u9fff]+/g, '').trim();
+            if (en.replace(/[^\w\s,.]/g, '').trim() === '') en = '';
+            return { en, zh };
+        }
+        return { en: raw, zh: '' };
+    }
+
+    function parseMd(text) {
+        const lines = text.split(/\r?\n/);
+        const groups = [];
+        let currentGroup = { name: '全部词条', items: [] };
+
+        for (let line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+
+            if (/^##\s+/.test(trimmed)) {
+                if (currentGroup.items.length > 0) groups.push(currentGroup);
+                currentGroup = { name: trimmed.replace(/^##\s+/, '').trim(), items: [] };
+                continue;
+            }
+
+            if (/^#{1,3}\s+/.test(trimmed)) {
+                if (currentGroup.items.length > 0) groups.push(currentGroup);
+                currentGroup = { name: '默认分组', items: [] };
+                continue;
+            }
+
+            let content = null;
+            if (/^\s*[-*+]\s+/.test(trimmed) || /^\s*\d+[\.\)]\s+/.test(trimmed)) {
+                content = trimmed.replace(/^\s*[-*+]\s+/, '').replace(/^\s*\d+[\.\)]\s+/, '');
+            } else if (trimmed.length < 100 && !/^#/.test(trimmed)) {
+                content = trimmed;
+            }
+
+            if (content) {
+                const parsed = extractEnZh(content);
+                if (parsed && (parsed.en || parsed.zh)) {
+                    currentGroup.items.push(parsed);
+                }
+            }
+        }
+
+        if (currentGroup.items.length > 0 || groups.length === 0) {
+            groups.push(currentGroup);
+        }
+
+        // 如果解析出 0 条，暴力回退
+        const total = groups.reduce((acc, g) => acc + g.items.length, 0);
+        if (total === 0) {
+            const fallback = { name: '原始内容', items: [] };
+            for (let line of lines) {
+                const trimmed = line.trim();
+                if (trimmed && !/^#/.test(trimmed) && !/^---/.test(trimmed) && trimmed.length < 100) {
+                    const parsed = extractEnZh(trimmed);
+                    if (parsed && (parsed.en || parsed.zh)) {
+                        fallback.items.push(parsed);
+                    }
+                }
+            }
+            if (fallback.items.length > 0) {
+                groups.length = 0;
+                groups.push(fallback);
+            }
+        }
+        return groups;
+    }
+
+    // ============================================================
+    // 加载数据（通过 ghproxy.net 代理）
+    // ============================================================
+    async function loadAllData() {
+        const statusEl = document.getElementById('status');
+        statusEl.textContent = '加载中...';
+        statusEl.className = 'status loading';
+
+        let successCount = 0;
+        for (const file of FILES) {
+            try {
+                const url = PROXY + REPO_PATH + file;
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    const text = await resp.text();
+                    const groups = parseMd(text);
+                    allData[file] = groups;
+                    successCount++;
+                } else {
+                    allData[file] = [{ name: '加载失败', items: [] }];
+                }
+            } catch (e) {
+                allData[file] = [{ name: '加载失败', items: [] }];
+            }
+        }
+
+        if (successCount === FILES.length) {
+            statusEl.textContent = `✅ 已加载 ${successCount} 个文件`;
+            statusEl.className = 'status success';
+        } else {
+            statusEl.textContent = `⚠️ 加载 ${successCount}/${FILES.length}`;
+            statusEl.className = 'status error';
+        }
+
+        currentFile = FILES[0];
+        renderTabs();
+        renderContent(currentFile);
+        updateOutput();
+    }
+
+    // ============================================================
+    // 渲染
+    // ============================================================
+    function renderTabs() {
+        const container = document.getElementById('tabsContainer');
+        container.innerHTML = '';
+        FILES.forEach((file) => {
+            const tab = document.createElement('span');
+            tab.className = `tab ${file === currentFile ? 'active' : ''}`;
+            const groups = allData[file] || [];
+            const count = groups.reduce((sum, g) => sum + (g.items ? g.items.length : 0), 0);
+            const label = FILE_LABELS[file] || file;
+            tab.innerHTML = `${label} <span class="count">${count}</span>`;
+            tab.dataset.file = file;
+            tab.addEventListener('click', () => {
+                currentFile = file;
+                renderTabs();
+                renderContent(file);
+                updateOutput();
+            });
+            container.appendChild(tab);
+        });
+    }
+
+    function renderContent(file) {
+        const container = document.getElementById('contentContainer');
+        const groups = allData[file];
+        if (!groups || groups.length === 0 || groups.every(g => !g.items || g.items.length === 0)) {
+            container.innerHTML = `<div class="empty-tip">该分类暂无数据</div>`;
+            return;
+        }
+
+        let html = '';
+        firstOpenDone = false;
+        groups.forEach((group, groupIdx) => {
+            const groupId = `group_${file}_${groupIdx}`;
+            const isOpen = (groupIdx === 0 && !firstOpenDone) || groupIdx === 0;
+            if (groupIdx === 0) firstOpenDone = true;
+            const items = group.items || [];
+            const itemHtml = items.length === 0 ?
+                '<span style="color:#555;font-size:12px;padding:4px 0;">（无词条）</span>' :
+                items.map((item, itemIdx) => {
+                    const key = `${file}_${groupIdx}_${itemIdx}`;
+                    const active = selections[key] ? 'active' : '';
+                    const enDisplay = item.en || '';
+                    const zhDisplay = item.zh || '';
+                    let label = '';
+                    if (zhDisplay && enDisplay) {
+                        label = `${zhDisplay} (${enDisplay.slice(0, 35)}${enDisplay.length > 35 ? '…' : ''})`;
+                    } else if (zhDisplay) {
+                        label = zhDisplay;
+                    } else {
+                        label = enDisplay;
+                    }
+                    return `<span class="opt ${active}" data-key="${key}" data-en="${enDisplay}" data-zh="${zhDisplay}">${label}</span>`;
+                }).join('');
+
+            html += `
+                <div class="group" data-group-id="${groupId}">
+                    <div class="group-header" data-target="${groupId}">
+                        <span>${group.name || '未命名分组'} (${items.length})</span>
+                        <span class="arrow ${isOpen ? 'open' : ''}">▶</span>
+                    </div>
+                    <div class="group-body ${isOpen ? 'open' : ''}" id="${groupId}">
+                        ${itemHtml}
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.group-header').forEach(header => {
+            header.addEventListener('click', function() {
+                const targetId = this.dataset.target;
+                const body = document.getElementById(targetId);
+                if (body) {
+                    body.classList.toggle('open');
+                    const arrow = this.querySelector('.arrow');
+                    if (arrow) arrow.classList.toggle('open');
+                }
+            });
+        });
+
+        container.querySelectorAll('.opt').forEach(el => {
+            el.addEventListener('click', function() {
+                const key = this.dataset.key;
+                selections[key] = !selections[key];
+                this.classList.toggle('active');
+                updateOutput();
+            });
+        });
+    }
+
+    // ============================================================
+    // 输出
+    // ============================================================
+    function updateOutput() {
+        const output = document.getElementById('promptOutput');
+        const trans = document.getElementById('translationText');
+
+        const selectedItems = [];
+        FILES.forEach(file => {
+            const groups = allData[file] || [];
+            groups.forEach((group, gIdx) => {
+                (group.items || []).forEach((item, iIdx) => {
+                    const key = `${file}_${gIdx}_${iIdx}`;
+                    if (selections[key]) {
+                        const enText = item.en || item.zh || '';
+                        if (enText) {
+                            selectedItems.push({
+                                en: enText,
+                                zh: item.zh || item.en || '',
+                            });
+                        }
+                    }
+                });
+            });
+        });
+
+        const enParts = selectedItems.map(it => it.en);
+        const zhParts = selectedItems.map(it => it.zh);
+
+        const finalPrompt = enParts.join(', ');
+        if (finalPrompt) {
+            output.textContent = finalPrompt;
+            output.classList.remove('placeholder');
+        } else {
+            output.textContent = '请选择词条...';
+            output.classList.add('placeholder');
+        }
+        trans.textContent = zhParts.length ? zhParts.join('；') : '暂无选择';
+    }
+
+    // ============================================================
+    // 清空 & 复制
+    // ============================================================
+    function resetSelections() {
+        selections = {};
+        renderContent(currentFile);
+        updateOutput();
+    }
+
+    function copyPrompt() {
+        const output = document.getElementById('promptOutput');
+        const text = output.textContent;
+        if (!text || text === '请选择词条...' || text === '选择词条后自动生成...') {
+            alert('还没有选择任何词条！');
+            return;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+            alert('✅ 提示词已复制到剪贴板！');
+        }).catch(() => {
+            const range = document.createRange();
+            range.selectNode(output);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            document.execCommand('copy');
+            alert('✅ 已复制！');
+        });
+    }
+
+    // ============================================================
+    // 启动
+    // ============================================================
+    loadAllData();
+
+    window.resetSelections = resetSelections;
+    window.copyPrompt = copyPrompt;
+</script>
+</body>
+</html>
